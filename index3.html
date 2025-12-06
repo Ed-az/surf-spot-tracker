@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surf Forecast - South West France</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const Waves = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>);
+        const Wind = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>);
+        const Thermometer = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></svg>);
+        const MapPin = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>);
+        const Trophy = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>);
+        const RefreshCw = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>);
+        const AlertCircle = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>);
+
+        function SurfTracker() {
+            const [spots, setSpots] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [bestSpot, setBestSpot] = useState(null);
+            const [error, setError] = useState(null);
+            const [lastFetch, setLastFetch] = useState(null);
+            const [userLocation, setUserLocation] = useState(null);
+            const [locationSet, setLocationSet] = useState(false);
+            const [gettingLocation, setGettingLocation] = useState(false);
+
+            const UNSPLASH_ACCESS_KEY = 'ZDVtQ8eNrNeNu_Pc_CAzqzQPdaVfAwTNrs9avy1hBr4';
+            const BASE_LOCATIONS = [
+                { name: "Biarritz", lat: 43.4832, lng: -1.5586 },
+                { name: "Hossegor", lat: 43.6617, lng: -1.4078 },
+                { name: "Anglet", lat: 43.4950, lng: -1.5267 },
+                { name: "San Sebastián", lat: 43.3213, lng: -1.9812 },
+                { name: "Capbreton", lat: 43.6450, lng: -1.4400 },
+                { name: "Bidart", lat: 43.4397, lng: -1.5889 },
+                { name: "Hendaye", lat: 43.3667, lng: -1.7667 }
+            ];
+
+            const SURF_SPOTS = [
+                { name: "La Zurriola", location: "San Sebastián, Spain", lat: 43.3213, lng: -1.9812, avgWaterTemp: 17, imageSearch: "La Zurriola San Sebastian surf beach" },
+                { name: "Zarautz", location: "Basque Country, Spain", lat: 43.2833, lng: -2.1667, avgWaterTemp: 17, imageSearch: "Zarautz surf beach Spain" },
+                { name: "Mundaka", location: "Basque Country, Spain", lat: 43.4069, lng: -2.6978, avgWaterTemp: 17, imageSearch: "Mundaka surf wave Spain" },
+                { name: "Hendaye", location: "France", lat: 43.3700, lng: -1.7750, avgWaterTemp: 17, imageSearch: "Hendaye surf beach France" },
+                { name: "Biarritz - Grande Plage", location: "Biarritz, France", lat: 43.4832, lng: -1.5586, avgWaterTemp: 17, imageSearch: "Biarritz Grande Plage surf" },
+                { name: "Biarritz - Côte des Basques", location: "Biarritz, France", lat: 43.4775, lng: -1.5642, avgWaterTemp: 17, imageSearch: "Cote des Basques Biarritz surf" },
+                { name: "Biarritz - Marbella", location: "Biarritz, France", lat: 43.4756, lng: -1.5544, avgWaterTemp: 17, imageSearch: "Marbella Biarritz surf beach" },
+                { name: "Guéthary", location: "France", lat: 43.4261, lng: -1.6047, avgWaterTemp: 17, imageSearch: "Guethary surf France Basque" },
+                { name: "Bidart - Centre", location: "Bidart, France", lat: 43.4389, lng: -1.5889, avgWaterTemp: 17, imageSearch: "Bidart Centre surf beach" },
+                { name: "Bidart - Erretegia", location: "Bidart, France", lat: 43.4406, lng: -1.5872, avgWaterTemp: 17, imageSearch: "Erretegia Bidart surf" },
+                { name: "Bidart - Pavillon Royal", location: "Bidart, France", lat: 43.4456, lng: -1.5822, avgWaterTemp: 17, imageSearch: "Pavillon Royal Bidart surf" },
+                { name: "Anglet - Les Cavaliers", location: "Anglet, France", lat: 43.4942, lng: -1.5281, avgWaterTemp: 17, imageSearch: "Les Cavaliers Anglet surf" },
+                { name: "Anglet - Chambre d'Amour", location: "Anglet, France", lat: 43.5050, lng: -1.5197, avgWaterTemp: 17, imageSearch: "Chambre Amour Anglet surf beach" },
+                { name: "Anglet - VVF", location: "Anglet, France", lat: 43.5017, lng: -1.5239, avgWaterTemp: 17, imageSearch: "VVF Anglet surf beach France" },
+                { name: "Capbreton - La Piste", location: "Capbreton, France", lat: 43.6467, lng: -1.4375, avgWaterTemp: 17, imageSearch: "Capbreton La Piste surf" },
+                { name: "Capbreton - Le Prévent", location: "Capbreton, France", lat: 43.6422, lng: -1.4347, avgWaterTemp: 17, imageSearch: "Le Prevent Capbreton surf" },
+                { name: "Hossegor - La Gravière", location: "Hossegor, France", lat: 43.6708, lng: -1.4289, avgWaterTemp: 17, imageSearch: "La Graviere Hossegor surf barrels" },
+                { name: "Hossegor - La Nord", location: "Hossegor, France", lat: 43.6769, lng: -1.4300, avgWaterTemp: 17, imageSearch: "La Nord Hossegor surf beach" },
+                { name: "Hossegor - Les Culs Nuls", location: "Hossegor, France", lat: 43.6658, lng: -1.4256, avgWaterTemp: 17, imageSearch: "Les Culs Nuls Hossegor surf" },
+                { name: "Hossegor - Les Estagnots", location: "Hossegor, France", lat: 43.6633, lng: -1.4244, avgWaterTemp: 17, imageSearch: "Les Estagnots Hossegor surf beach" },
+                { name: "Hossegor - Les Casernes", location: "Hossegor, France", lat: 43.6681, lng: -1.4267, avgWaterTemp: 17, imageSearch: "Les Casernes Hossegor surf" },
+                { name: "Hossegor - La Centrale", location: "Hossegor, France", lat: 43.6692, lng: -1.4278, avgWaterTemp: 17, imageSearch: "La Centrale Hossegor surf spot" },
+                { name: "Seignosse - Les Bourdaines", location: "Seignosse, France", lat: 43.6881, lng: -1.4317, avgWaterTemp: 17, imageSearch: "Les Bourdaines Seignosse surf" },
+                { name: "Seignosse - Les Estagnots", location: "Seignosse, France", lat: 43.6947, lng: -1.4342, avgWaterTemp: 17, imageSearch: "Les Estagnots Seignosse surf beach" },
+                { name: "Vieux-Boucau", location: "Landes, France", lat: 43.7869, lng: -1.3981, avgWaterTemp: 17, imageSearch: "Vieux Boucau surf beach Landes France" }
+            ];
+
+            const calculateDistance = (lat1, lon1, lat2, lon2) => {
+                const R = 6371;
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                return R * c;
+            };
+
+            const calculateSmartScore = (rating, distance) => {
+                const qualityScore = parseFloat(rating);
+                if (distance <= 30) return qualityScore * 10 + (30 - distance) * 0.5;
+                else return qualityScore * 10 - (distance - 30) * 0.3;
+            };
+
+            const useGPSLocation = () => {
+                setGettingLocation(true);
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            setUserLocation({ lat: position.coords.latitude, lng: position.coords.longitude, name: "Your Location" });
+                            setLocationSet(true);
+                            setGettingLocation(false);
+                        },
+                        (error) => {
+                            setError("Could not get your location.");
+                            setGettingLocation(false);
+                        }
+                    );
+                } else {
+                    setError("GPS not supported.");
+                    setGettingLocation(false);
+                }
+            };
+
+            const selectBaseLocation = (location) => {
+                setUserLocation(location);
+                setLocationSet(true);
+            };
+
+            const fetchSpotImage = async (spot) => {
+                try {
+                    const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(spot.imageSearch)}&client_id=${UNSPLASH_ACCESS_KEY}&per_page=1&orientation=landscape`;
+                    const response = await fetch(url);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.results?.length > 0) {
+                            return { url: data.results[0].urls.regular, thumb: data.results[0].urls.small, photographer: data.results[0].user.name, photographerUrl: data.results[0].user.links.html };
+                        }
+                    }
+                } catch (error) {}
+                return { url: 'https://images.unsplash.com/photo-1502933691298-84fc14542831?w=1200&q=80', thumb: 'https://images.unsplash.com/photo-1502933691298-84fc14542831?w=400&q=80', photographer: 'Jeremy Bishop', photographerUrl: 'https://unsplash.com/@jeremybishop' };
+            };
+
+            const fetchSpotData = async (spot) => {
+                const url = `https://marine-api.open-meteo.com/v1/marine?latitude=${spot.lat}&longitude=${spot.lng}&current=wave_height,wind_speed_10m,wind_direction_10m&timezone=auto`;
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error(`API error`);
+                    const data = await response.json();
+                    const current = data.current;
+                    const waveHeight = current.wave_height || 0;
+                    let windSpeed = current.wind_speed_10m;
+                    let windDir = current.wind_direction_10m;
+                    let hasWindData = windSpeed > 0;
+                    let waterTemp = null;
+                    let fetchedFromWeatherAPI = false;
+                    try {
+                        const weatherUrl = `https://api.weatherapi.com/v1/current.json?key=346b582b64c3448995f120007251011&q=${spot.lat},${spot.lng}`;
+                        const weatherResp = await fetch(weatherUrl);
+                        if (weatherResp.ok) {
+                            const weatherData = await weatherResp.json();
+                            if (!hasWindData && weatherData.current) {
+                                windSpeed = weatherData.current.wind_kph / 3.6;
+                                windDir = weatherData.current.wind_degree;
+                                hasWindData = windSpeed > 0;
+                            }
+                        }
+                    } catch (e) {}
+                    try {
+                        const marineUrl = `https://api.weatherapi.com/v1/marine.json?key=346b582b64c3448995f120007251011&q=${spot.lat},${spot.lng}&days=1`;
+                        const marineResp = await fetch(marineUrl);
+                        if (marineResp.ok) {
+                            const marineData = await marineResp.json();
+                            const hourData = marineData.forecast?.forecastday?.[0]?.hour?.[new Date().getHours()] || marineData.forecast?.forecastday?.[0]?.hour?.[0];
+                            if (hourData?.water_temp_c) {
+                                waterTemp = hourData.water_temp_c;
+                                fetchedFromWeatherAPI = true;
+                            }
+                        }
+                    } catch (e) {}
+                    windSpeed = windSpeed || 0;
+                    windDir = windDir || 0;
+                    if (!waterTemp) {
+                        const month = new Date().getMonth();
+                        waterTemp = spot.avgWaterTemp + Math.sin((month / 12) * Math.PI * 2) * 3;
+                    }
+                    let rating = 3;
+                    if (waveHeight >= 1 && waveHeight <= 2.5) rating += 3;
+                    else if (waveHeight > 2.5 && waveHeight <= 4) rating += 2;
+                    else if (waveHeight > 4) rating += 1;
+                    else if (waveHeight >= 0.5) rating += 1.5;
+                    const windMph = windSpeed * 2.237;
+                    if (windMph < 8) rating += 2.5;
+                    else if (windMph < 15) rating += 1.5;
+                    else if (windMph < 20) rating += 0.5;
+                    else rating -= 1;
+                    let windDirectionText = 'variable';
+                    if (windDir >= 315 || windDir < 45) { windDirectionText = 'N'; rating += 1; }
+                    else if (windDir >= 45 && windDir < 135) { windDirectionText = 'E'; rating += 0.5; }
+                    else if (windDir >= 135 && windDir < 225) { windDirectionText = 'S'; rating -= 0.5; }
+                    else { windDirectionText = 'W'; rating += 0.3; }
+                    if (waterTemp > 24) rating += 0.8;
+                    else if (waterTemp > 20) rating += 0.5;
+                    else if (waterTemp < 15) rating -= 0.3;
+                    rating = Math.max(1, Math.min(10, rating));
+                    return { ...spot, waveHeight: waveHeight.toFixed(1), windSpeed: Math.round(windMph), windDirection: windDirectionText, waterTemp: Math.round(waterTemp), rating: rating.toFixed(1), hasWindData, hasRealWaterTemp: fetchedFromWeatherAPI };
+                } catch (err) {
+                    throw err;
+                }
+            };
+
+            const fetchSurfData = async () => {
+                if (!userLocation) return;
+                setLoading(true);
+                setError(null);
+                try {
+                    const spotDataPromises = SURF_SPOTS.map(async (spot) => {
+                        const [conditions, image] = await Promise.all([fetchSpotData(spot), fetchSpotImage(spot)]);
+                        const distance = calculateDistance(userLocation.lat, userLocation.lng, spot.lat, spot.lng);
+                        return { ...conditions, image, distance };
+                    });
+                    const allSpots = await Promise.all(spotDataPromises);
+                    const spotsWithScores = allSpots.map(spot => ({ ...spot, smartScore: calculateSmartScore(spot.rating, spot.distance) }));
+                    const top10 = spotsWithScores.sort((a, b) => b.smartScore - a.smartScore).slice(0, 10);
+                    const best = top10.reduce((prev, current) => (parseFloat(prev.rating) > parseFloat(current.rating)) ? prev : current);
+                    setSpots(top10);
+                    setBestSpot(best);
+                    setLastFetch(new Date());
+                } catch (err) {
+                    setError('Failed to fetch surf data.');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            useEffect(() => {
+                if (locationSet && userLocation) fetchSurfData();
+            }, [locationSet]);
+
+            const getRatingColor = (rating) => {
+                const n = parseFloat(rating);
+                if (n >= 8) return 'text-green-500';
+                if (n >= 6) return 'text-yellow-500';
+                return 'text-orange-500';
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-cyan-50 p-8">
+                    <div className="max-w-7xl mx-auto">
+                        {!locationSet ? (
+                            <div className="min-h-[80vh] flex items-center justify-center">
+                                <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-xl border border-gray-200">
+                                    <div className="text-center mb-6">
+                                        <div className="w-16 h-16 mx-auto mb-4 text-blue-600"><Waves /></div>
+                                        <h1 className="text-3xl font-bold text-gray-800 mb-2">Where are you?</h1>
+                                        <p className="text-gray-600">We'll find the best surf spots near you</p>
+                                    </div>
+                                    <button onClick={useGPSLocation} disabled={gettingLocation} className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 disabled:from-gray-400 disabled:to-gray-500 text-white px-6 py-4 rounded-lg flex items-center justify-center gap-2 mb-4 transition-all font-semibold text-lg shadow-md">
+                                        <MapPin className="w-6 h-6" />
+                                        {gettingLocation ? 'Getting location...' : 'Use My Location (GPS)'}
+                                    </button>
+                                    <div className="relative mb-4">
+                                        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-300"></div></div>
+                                        <div className="relative flex justify-center text-sm"><span className="px-2 bg-white text-gray-500">or choose</span></div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {BASE_LOCATIONS.map((loc, idx) => (
+                                            <button key={idx} onClick={() => selectBaseLocation(loc)} className="w-full bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-700 px-6 py-3 rounded-lg transition-all text-left flex items-center gap-2 border border-gray-200 hover:border-blue-300">
+                                                <MapPin className="w-4 h-4" /> {loc.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div>
+                                <div className="text-center mb-12">
+                                    <div className="flex items-center justify-center gap-3 mb-4">
+                                        <div className="w-12 h-12 text-blue-600"><Waves /></div>
+                                        <h1 className="text-5xl font-bold text-gray-800">Best Surf Spots Near You</h1>
+                                    </div>
+                                    <p className="text-xl text-gray-600">Top 10 closest spots with great conditions</p>
+                                    <p className="text-blue-600 mt-2 font-semibold">📍 Based from: {userLocation.name}</p>
+                                    <div className="mt-6 flex items-center justify-center gap-4 flex-wrap">
+                                        {lastFetch && <div className="text-gray-500 text-sm">Last updated: {lastFetch.toLocaleTimeString()}</div>}
+                                        <button onClick={() => fetchSurfData()} disabled={loading} className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-all shadow-md">
+                                            <RefreshCw className={loading ? 'animate-spin' : ''} /> Refresh Data
+                                        </button>
+                                        <button onClick={() => { setLocationSet(false); setUserLocation(null); setSpots([]); setBestSpot(null); }} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-lg flex items-center gap-2 transition-all border border-gray-300">
+                                            <MapPin className="w-5 h-5" /> Change Location
+                                        </button>
+                                    </div>
+                                </div>
+                                {error && (
+                                    <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4 mb-8 flex items-start gap-3">
+                                        <div className="w-6 h-6 text-red-500 flex-shrink-0 mt-1"><AlertCircle /></div>
+                                        <div className="text-gray-800"><p className="font-bold mb-1">Error</p><p>{error}</p></div>
+                                    </div>
+                                )}
+                                {loading ? (
+                                    <div className="text-center text-gray-700 text-2xl">
+                                        <div className="w-16 h-16 mx-auto mb-4 animate-bounce text-blue-600"><Waves /></div>
+                                        Fetching surf conditions...
+                                    </div>
+                                ) : spots.length > 0 ? (
+                                    <div>
+                                        {bestSpot && (
+                                            <div className="relative bg-gradient-to-r from-blue-400 to-cyan-500 rounded-2xl overflow-hidden mb-8 shadow-xl">
+                                                {bestSpot.image && (
+                                                    <>
+                                                        <div className="absolute inset-0">
+                                                            <img src={bestSpot.image.url} alt={bestSpot.name} className="w-full h-full object-cover" />
+                                                            <div className="absolute inset-0 bg-gradient-to-r from-blue-900/70 via-cyan-900/60 to-blue-900/70"></div>
+                                                        </div>
+                                                        <div className="absolute bottom-2 right-2 text-white/80 text-xs z-10">
+                                                            Photo by <a href={bestSpot.image.photographerUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-white">{bestSpot.image.photographer}</a> on Unsplash
+                                                        </div>
+                                                    </>
+                                                )}
+                                                <div className="relative z-10 p-8">
+                                                    <div className="flex items-center gap-3 mb-4">
+                                                        <div className="w-10 h-10 text-white"><Trophy /></div>
+                                                        <h2 className="text-3xl font-bold text-white drop-shadow-lg">Today's Best Spot</h2>
+                                                    </div>
+                                                    <div className="grid md:grid-cols-2 gap-6">
+                                                        <div>
+                                                            <h3 className="text-4xl font-bold text-white mb-2 drop-shadow-lg">{bestSpot.name}</h3>
+                                                            <p className="text-xl text-white/95 mb-4 flex items-center gap-2 drop-shadow">
+                                                                <div className="w-5 h-5"><MapPin /></div>
+                                                                {bestSpot.location}
+                                                            </p>
+                                                            <div className="text-6xl font-bold text-white drop-shadow-lg mb-2">{bestSpot.rating}/10</div>
+                                                            <p className="text-white/90 text-lg">📍 {bestSpot.distance.toFixed(1)} km away</p>
+                                                        </div>
+                                                        <div className="space-y-4">
+                                                            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 border border-white/30">
+                                                                <div className="flex items-center gap-3 mb-2">
+                                                                    <div className="w-6 h-6 text-white"><Waves /></div>
+                                                                    <span className="text-white font-semibold text-lg">Wave Height</span>
+                                                                </div>
+                                                                <p className="text-3xl font-bold text-white">{bestSpot.waveHeight}m</p>
+                                                            </div>
+                                                            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 border border-white/30">
+                                                                <div className="flex items-center gap-3 mb-2">
+                                                                    <div className="w-6 h-6 text-white"><Wind /></div>
+                                                                    <span className="text-white font-semibold text-lg">Wind</span>
+                                                                </div>
+                                                                <p className="text-3xl font-bold text-white">{bestSpot.windSpeed} mph {bestSpot.windDirection}</p>
+                                                            </div>
+                                                            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 border border-white/30">
+                                                                <div className="flex items-center gap-3 mb-2">
+                                                                    <div className="w-6 h-6 text-white"><Thermometer /></div>
+                                                                    <span className="text-white font-semibold text-lg">Water Temp</span>
+                                                                </div>
+                                                                <p className="text-3xl font-bold text-white">{bestSpot.waterTemp}°C</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                        <div className="mb-6">
+                                            <h2 className="text-3xl font-bold text-gray-800 mb-6">Other Great Spots</h2>
+                                        </div>
+                                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            {spots.filter(spot => spot.name !== bestSpot?.name).map((spot, idx) => (
+                                                <div key={idx} className="relative bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all border border-gray-200">
+                                                    {spot.image && (
+                                                        <>
+                                                            <div className="relative h-48">
+                                                                <img src={spot.image.thumb} alt={spot.name} className="w-full h-full object-cover" />
+                                                                <div className="absolute inset-0 bg-gradient-to-t from-gray-900/80 via-gray-900/40 to-transparent"></div>
+                                                                <div className="absolute bottom-2 right-2 text-white/70 text-xs">
+                                                                    Photo by <a href={spot.image.photographerUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-white">{spot.image.photographer}</a>
+                                                                </div>
+                                                                <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg">
+                                                                    <div className={`text-3xl font-bold ${getRatingColor(spot.rating)}`}>{spot.rating}</div>
+                                                                    <div className="text-xs text-gray-600 font-semibold">/ 10</div>
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    <div className="p-5">
+                                                        <h3 className="text-xl font-bold text-gray-800 mb-1">{spot.name}</h3>
+                                                        <p className="text-sm text-gray-600 mb-3 flex items-center gap-1">
+                                                            <MapPin className="w-4 h-4" />
+                                                            {spot.location} • {spot.distance.toFixed(1)} km
+                                                        </p>
+                                                        <div className="space-y-2">
+                                                            <div className="flex items-center justify-between text-sm">
+                                                                <div className="flex items-center gap-2 text-gray-700">
+                                                                    <Waves className="w-4 h-4" />
+                                                                    <span className="font-medium">Waves</span>
+                                                                </div>
+                                                                <span className="font-bold text-gray-900">{spot.waveHeight}m</span>
+                                                            </div>
+                                                            <div className="flex items-center justify-between text-sm">
+                                                                <div className="flex items-center gap-2 text-gray-700">
+                                                                    <Wind className="w-4 h-4" />
+                                                                    <span className="font-medium">Wind</span>
+                                                                </div>
+                                                                <span className="font-bold text-gray-900">{spot.windSpeed} mph {spot.windDirection}</span>
+                                                            </div>
+                                                            <div className="flex items-center justify-between text-sm">
+                                                                <div className="flex items-center gap-2 text-gray-700">
+                                                                    <Thermometer className="w-4 h-4" />
+                                                                    <span className="font-medium">Water</span>
+                                                                </div>
+                                                                <span className="font-bold text-gray-900">{spot.waterTemp}°C</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : null}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<SurfTracker />, document.getElementById('root'));
+    </script>
+</body>
+</html>
